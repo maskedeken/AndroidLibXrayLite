@@ -19,11 +19,11 @@ func NewTun2ray(config *TunConfig) (*Tun2ray, error) {
 	}
 
 	tun2ray := &Tun2ray{
-		v2rayPoint: config.V2Ray,
-		udpTable:   &natTable{},
-		udpQueue:   make(chan *tun.UDPPacket, 200),
-		fakedns:    config.FakeDNS,
-		sniffing:   config.Sniffing,
+		vpoint:   config.V2Ray.Vpoint,
+		udpTable: &natTable{},
+		udpQueue: make(chan *tun.UDPPacket, 200),
+		fakedns:  config.FakeDNS,
+		sniffing: config.Sniffing,
 	}
 	tun2ray.stack, err = gvisor.New(endpoint, tun2ray, 0x01)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/signal"
+	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/transport"
 
 	net2 "github.com/xtls/xray-core/common/net"
@@ -19,11 +20,12 @@ import (
 
 // dispatcherConn (for zero-copy)
 
-func (instance *V2RayPoint) newDispatcherConn(ctx context.Context, destinationConn net2.Destination, destinationV2ray net2.Destination,
+func newDispatcherConn(ctx context.Context, dispatcher routing.Dispatcher,
+	destinationConn net2.Destination, destinationV2ray net2.Destination,
 	writeBack tun.WriteBackFunc, timeout time.Duration, workerN int,
 ) (*dispatcherConn, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	link, err := instance.dispatcher.Dispatch(ctx, destinationV2ray)
+	link, err := dispatcher.Dispatch(ctx, destinationV2ray)
 	if err != nil {
 		cancel()
 		return nil, err

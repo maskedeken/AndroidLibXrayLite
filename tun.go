@@ -17,6 +17,7 @@ import (
 	v2rayNet "github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/transport"
 )
 
@@ -32,8 +33,8 @@ type TunConfig struct {
 }
 
 type Tun2ray struct {
-	v2rayPoint *V2RayPoint
-	stack      *stack.Stack
+	vpoint *core.Instance
+	stack  *stack.Stack
 
 	udpTable *natTable
 	udpQueue chan *tun.UDPPacket
@@ -50,16 +51,8 @@ func (t *Tun2ray) Close() {
 }
 
 func (t *Tun2ray) NewConnection(source v2rayNet.Destination, destination v2rayNet.Destination, conn net.Conn) {
-	t.v2rayPoint.v2rayOP.Lock()
-	if !t.v2rayPoint.IsRunning {
-		conn.Close()
-		t.v2rayPoint.v2rayOP.Unlock()
-		return
-	}
-	v := t.v2rayPoint.Vpoint
-	t.v2rayPoint.v2rayOP.Unlock()
-
-	ctx := core.WithContext(context.Background(), v)
+	dispatcher := t.vpoint.GetFeature(routing.DispatcherType()).(routing.Dispatcher)
+	ctx := core.WithContext(context.Background(), t.vpoint)
 	ctx = session.ContextWithInbound(ctx, &session.Inbound{
 		Source: source,
 	})
@@ -97,7 +90,7 @@ func (t *Tun2ray) NewConnection(source v2rayNet.Destination, destination v2rayNe
 		Reader: rw,
 		Writer: rw,
 	}
-	err := t.v2rayPoint.dispatcher.DispatchLink(ctx, destination, link)
+	err := dispatcher.DispatchLink(ctx, destination, link)
 
 	if err != nil {
 		log.Printf("[TCP] dispatchLink failed: %s", err.Error())
@@ -217,16 +210,9 @@ func (t *Tun2ray) udpHandleUplinkInternal(p *tun.UDPPacket) {
 		timeout = time.Second * 30
 	}
 
-	t.v2rayPoint.v2rayOP.Lock()
-	if !t.v2rayPoint.IsRunning {
-		t.v2rayPoint.v2rayOP.Unlock()
-		return
-	}
-	v := t.v2rayPoint.Vpoint
-	t.v2rayPoint.v2rayOP.Unlock()
-
-	ctx = core.WithContext(ctx, v)
-	conn, err := t.v2rayPoint.newDispatcherConn(ctx, destination, destination2, p.WriteBack, timeout, workerN)
+	dispatcher := t.vpoint.GetFeature(routing.DispatcherType()).(routing.Dispatcher)
+	ctx = core.WithContext(ctx, t.vpoint)
+	conn, err := newDispatcherConn(ctx, dispatcher, destination, destination2, p.WriteBack, timeout, workerN)
 	if err != nil {
 		log.Printf("[UDP] dial failed: %s", err.Error())
 		return

@@ -19,7 +19,6 @@ import (
 	v2net "github.com/xtls/xray-core/common/net"
 	v2filesystem "github.com/xtls/xray-core/common/platform/filesystem"
 	v2core "github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/routing"
 	v2stats "github.com/xtls/xray-core/features/stats"
 	v2serial "github.com/xtls/xray-core/infra/conf/serial"
 	_ "github.com/xtls/xray-core/main/distro/all"
@@ -40,7 +39,6 @@ This is territory of Go, so no getter and setters!
 type V2RayPoint struct {
 	SupportSet   V2RayVPNServiceSupportsSet
 	statsManager v2stats.Manager
-	dispatcher   routing.Dispatcher
 
 	dialer    *ProtectedDialer
 	v2rayOP   sync.Mutex
@@ -152,7 +150,6 @@ func (v *V2RayPoint) pointloop() error {
 		return err
 	}
 	v.statsManager = v.Vpoint.GetFeature(v2stats.ManagerType()).(v2stats.Manager)
-	v.dispatcher = v.Vpoint.GetFeature(routing.DispatcherType()).(routing.Dispatcher)
 
 	log.Println("start core")
 	v.IsRunning = true
