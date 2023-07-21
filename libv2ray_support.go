@@ -78,6 +78,10 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 		} else {
 			addrs, err = d.resolver.LookupIP(ctx, network, domain)
 		}
+
+		if err == nil && len(addrs) == 0 {
+			err = dns.ErrEmptyResponse
+		}
 	}()
 
 	select {
@@ -86,7 +90,7 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 	case <-ok:
 	}
 
-	if err == nil && len(addrs) > 0 {
+	if err == nil {
 		IPs = make([]net.IP, 0)
 		//ipv6 is prefer, append ipv6 then ipv4
 		//ipv6 is not prefer, append ipv4 then ipv6
