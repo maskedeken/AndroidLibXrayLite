@@ -76,7 +76,6 @@ func (v *V2RayPoint) RunLoop(prefIPv6 bool) (err error) {
 		v.closeChan = make(chan struct{})
 		v.dialer.preferIPv6 = prefIPv6
 		v.dialer.currentServer = v.DomainName
-		v.dialer.vServer = nil
 		err = v.pointloop()
 	}
 	return
