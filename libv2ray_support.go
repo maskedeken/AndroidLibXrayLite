@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 
 type protectSet interface {
 	Protect(int) bool
+	GetResolver() UnderlyingResolver
 }
 
 type resolved struct {
@@ -84,25 +87,12 @@ func NewPreotectedDialer(p protectSet) *ProtectedDialer {
 // ProtectedDialer ...
 type ProtectedDialer struct {
 	currentServer string
-	resolveChan   chan struct{}
 	preferIPv6    bool
 
 	vServer  *resolved
 	resolver *net.Resolver
 
 	protectSet
-}
-
-func (d *ProtectedDialer) IsVServerReady() bool {
-	return (d.vServer != nil)
-}
-
-func (d *ProtectedDialer) PrepareResolveChan() {
-	d.resolveChan = make(chan struct{})
-}
-
-func (d *ProtectedDialer) ResolveChan() chan struct{} {
-	return d.resolveChan
 }
 
 // simplicated version of golang: internetAddrList in src/net/ipsock.go
@@ -127,7 +117,36 @@ func (d *ProtectedDialer) lookupAddr(addr string) (*resolved, error) {
 		return nil, err
 	}
 
-	addrs, err := d.resolver.LookupIPAddr(ctx, host)
+	if ip := net.ParseIP(host); ip != nil {
+		return &resolved{
+			domain:       host,
+			IPs:          []net.IP{ip},
+			Port:         portnum,
+			lastResolved: time.Now(),
+		}, nil
+	}
+
+	var addrs []net.IP
+	underlyingResolver := d.GetResolver()
+	if underlyingResolver != nil {
+		var str string
+		str, err = underlyingResolver.LookupIP("ip", host)
+		// java -> go
+		if err != nil {
+			rcode, err2 := strconv.Atoi(err.Error())
+			if err2 == nil {
+				err = dns.RCodeError(rcode)
+			}
+		} else if str == "" {
+			err = dns.ErrEmptyResponse
+		}
+		addrs = make([]net.IP, 0)
+		for _, ip := range strings.Split(str, ",") {
+			addrs = append(addrs, net.ParseIP(ip))
+		}
+	} else {
+		addrs, err = d.resolver.LookupIP(ctx, "ip", host)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -139,21 +158,21 @@ func (d *ProtectedDialer) lookupAddr(addr string) (*resolved, error) {
 	//ipv6 is prefer, append ipv6 then ipv4
 	//ipv6 is not prefer, append ipv4 then ipv6
 	if d.preferIPv6 {
-		for _, ia := range addrs {
-			if ia.IP.To4() == nil {
-				IPs = append(IPs, ia.IP)
+		for _, ip := range addrs {
+			if ip.To4() == nil {
+				IPs = append(IPs, ip)
 			}
 		}
 	}
-	for _, ia := range addrs {
-		if ia.IP.To4() != nil {
-			IPs = append(IPs, ia.IP)
+	for _, ip := range addrs {
+		if ip.To4() != nil {
+			IPs = append(IPs, ip)
 		}
 	}
 	if !d.preferIPv6 {
-		for _, ia := range addrs {
-			if ia.IP.To4() == nil {
-				IPs = append(IPs, ia.IP)
+		for _, ip := range addrs {
+			if ip.To4() == nil {
+				IPs = append(IPs, ip)
 			}
 		}
 	}
@@ -166,39 +185,6 @@ func (d *ProtectedDialer) lookupAddr(addr string) (*resolved, error) {
 	}
 
 	return rs, nil
-}
-
-// PrepareDomain caches direct v2ray server host
-func (d *ProtectedDialer) PrepareDomain(domainName string, closeCh <-chan struct{}, prefIPv6 bool) {
-	log.Printf("Preparing Domain: %s", domainName)
-	d.currentServer = domainName
-	d.preferIPv6 = prefIPv6
-
-	maxRetry := 10
-	for {
-		if maxRetry == 0 {
-			log.Println("PrepareDomain maxRetry reached. exiting.")
-			return
-		}
-
-		resolved, err := d.lookupAddr(domainName)
-		if err != nil {
-			maxRetry--
-			log.Printf("PrepareDomain err: %v\n", err)
-			select {
-			case <-closeCh:
-				log.Printf("PrepareDomain exit due to core closed")
-				return
-			case <-time.After(time.Second * 2):
-			}
-			continue
-		}
-
-		d.vServer = resolved
-		log.Printf("Prepare Result:\n Domain: %s\n Port: %d\n IPs: %v\n",
-			resolved.domain, resolved.Port, resolved.IPs)
-		return
-	}
 }
 
 func (d *ProtectedDialer) getFd(network v2net.Network) (fd int, err error) {
@@ -230,14 +216,12 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	// and switch to next IP if error occurred
 	if Address == d.currentServer {
 		if d.vServer == nil {
-			log.Println("Dial pending prepare  ...", Address)
-			<-d.resolveChan
-
-			// user may close connection during PrepareDomain,
-			// fast return release resources.
-			if d.vServer == nil {
-				return nil, fmt.Errorf("fail to prepare domain %s", d.currentServer)
+			rs, err := d.lookupAddr(Address)
+			if err != nil {
+				return nil, err
 			}
+
+			d.vServer = rs
 		}
 
 		// if time.Since(d.vServer.lastResolved) > time.Minute*30 {

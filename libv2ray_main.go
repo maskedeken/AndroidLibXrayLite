@@ -49,7 +49,10 @@ type V2RayPoint struct {
 
 	DomainName           string
 	ConfigureFileContent string
-	AsyncResolve         bool
+}
+
+type UnderlyingResolver interface {
+	LookupIP(network string, domain string) (string, error)
 }
 
 /*V2RayVPNServiceSupportsSet To support Android VPN mode*/
@@ -59,6 +62,7 @@ type V2RayVPNServiceSupportsSet interface {
 	Shutdown() int
 	Protect(int) bool
 	OnEmitStatus(int, string) int
+	GetResolver() UnderlyingResolver
 }
 
 /*RunLoop Run V2Ray main loop
@@ -70,33 +74,9 @@ func (v *V2RayPoint) RunLoop(prefIPv6 bool) (err error) {
 
 	if !v.IsRunning {
 		v.closeChan = make(chan struct{})
-		v.dialer.PrepareResolveChan()
-		go func() {
-			select {
-			// wait until resolved
-			case <-v.dialer.ResolveChan():
-				// shutdown VPNService if server name can not reolved
-				if !v.dialer.IsVServerReady() {
-					log.Println("vServer cannot resolved, shutdown")
-					v.StopLoop()
-					v.SupportSet.Shutdown()
-				}
-
-			// stop waiting if manually closed
-			case <-v.closeChan:
-			}
-		}()
-
-		if v.AsyncResolve {
-			go func() {
-				v.dialer.PrepareDomain(v.DomainName, v.closeChan, prefIPv6)
-				close(v.dialer.ResolveChan())
-			}()
-		} else {
-			v.dialer.PrepareDomain(v.DomainName, v.closeChan, prefIPv6)
-			close(v.dialer.ResolveChan())
-		}
-
+		v.dialer.preferIPv6 = prefIPv6
+		v.dialer.currentServer = v.DomainName
+		v.dialer.vServer = nil
 		err = v.pointloop()
 	}
 	return
@@ -116,7 +96,7 @@ func (v *V2RayPoint) StopLoop() (err error) {
 }
 
 // Delegate Funcation
-func (v V2RayPoint) QueryStats(tag string, direct string) int64 {
+func (v *V2RayPoint) QueryStats(tag string, direct string) int64 {
 	if v.statsManager == nil {
 		return 0
 	}
@@ -228,7 +208,7 @@ func MeasureOutboundDelay(ConfigureFileContent string) (int64, error) {
 }
 
 /*NewV2RayPoint new V2RayPoint*/
-func NewV2RayPoint(s V2RayVPNServiceSupportsSet, adns bool) *V2RayPoint {
+func NewV2RayPoint(s V2RayVPNServiceSupportsSet) *V2RayPoint {
 	// inject our own log writer
 	v2applog.RegisterHandlerCreator(v2applog.LogType_Console,
 		func(lt v2applog.LogType,
@@ -239,9 +219,8 @@ func NewV2RayPoint(s V2RayVPNServiceSupportsSet, adns bool) *V2RayPoint {
 	dialer := NewPreotectedDialer(s)
 	v2internet.UseAlternativeSystemDialer(dialer)
 	return &V2RayPoint{
-		SupportSet:   s,
-		dialer:       dialer,
-		AsyncResolve: adns,
+		SupportSet: s,
+		dialer:     dialer,
 	}
 }
 
