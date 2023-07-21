@@ -48,6 +48,7 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 	ok := make(chan interface{})
 	defer cancel()
 
+	var addrs []net.IP
 	go func() {
 		defer func() {
 			select {
@@ -58,7 +59,6 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 			close(ok)
 		}()
 
-		var addrs []net.IP
 		if underlyingResolver != nil {
 			var str string
 			str, err = underlyingResolver.LookupIP(network, domain)
@@ -78,39 +78,40 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 		} else {
 			addrs, err = d.resolver.LookupIP(ctx, network, domain)
 		}
-
-		if err == nil {
-			IPs = make([]net.IP, 0)
-			//ipv6 is prefer, append ipv6 then ipv4
-			//ipv6 is not prefer, append ipv4 then ipv6
-			if d.preferIPv6 {
-				for _, ip := range addrs {
-					if ip.To4() == nil {
-						IPs = append(IPs, ip)
-					}
-				}
-			}
-			for _, ip := range addrs {
-				if ip.To4() != nil {
-					IPs = append(IPs, ip)
-				}
-			}
-			if !d.preferIPv6 {
-				for _, ip := range addrs {
-					if ip.To4() == nil {
-						IPs = append(IPs, ip)
-					}
-				}
-			}
-		}
 	}()
 
 	select {
 	case <-ctx.Done():
 		return nil, errors.New("underlyingResolver: context cancelled")
 	case <-ok:
-		return
 	}
+
+	if err == nil && len(addrs) > 0 {
+		IPs = make([]net.IP, 0)
+		//ipv6 is prefer, append ipv6 then ipv4
+		//ipv6 is not prefer, append ipv4 then ipv6
+		if d.preferIPv6 {
+			for _, ip := range addrs {
+				if ip.To4() == nil {
+					IPs = append(IPs, ip)
+				}
+			}
+		}
+		for _, ip := range addrs {
+			if ip.To4() != nil {
+				IPs = append(IPs, ip)
+			}
+		}
+		if !d.preferIPv6 {
+			for _, ip := range addrs {
+				if ip.To4() == nil {
+					IPs = append(IPs, ip)
+				}
+			}
+		}
+	}
+
+	return
 }
 
 func (d *ProtectedDialer) getFd(network v2net.Network) (fd int, err error) {
