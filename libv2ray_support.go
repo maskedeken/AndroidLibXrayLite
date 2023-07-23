@@ -11,6 +11,7 @@ import (
 	"time"
 
 	v2net "github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/features/dns"
 	"github.com/xtls/xray-core/features/outbound"
 	v2internet "github.com/xtls/xray-core/transport/internet"
@@ -139,14 +140,24 @@ func (d *ProtectedDialer) Init(_ dns.Client, _ outbound.Manager) {
 func (d *ProtectedDialer) Dial(ctx context.Context,
 	src v2net.Address, dest v2net.Destination, sockopt *v2internet.SocketConfig) (conn net.Conn, err error) {
 
+	if dest.Address.Family().IsIP() && FAKEDNS_VLAN4_CLIENT_IPNET.Contains(dest.Address.IP()) {
+		// fake ip
+		outbound := session.OutboundFromContext(ctx)
+		if outbound == nil || !outbound.Target.IsValid() {
+			return nil, errors.New("target not specified")
+		}
+
+		dest = outbound.Target
+	}
+
 	var ips []net.IP
-	if dest.Address.Family().IsIP() {
-		ips = []net.IP{dest.Address.IP()}
-	} else {
+	if dest.Address.Family().IsDomain() {
 		ips, err = d.lookupAddr("ip", dest.Address.Domain())
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		ips = []net.IP{dest.Address.IP()}
 	}
 
 	for i, ip := range ips {
