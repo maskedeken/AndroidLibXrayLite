@@ -30,6 +30,7 @@ const PRIVATE_VLAN6_CLIENT = "da26:2626::1"
 const PRIVATE_VLAN6_ROUTER = "da26:2626::2"
 
 var FAKEDNS_VLAN4_CLIENT_IPNET = net.IPNet{IP: net.ParseIP("198.18.0.0").To4(), Mask: net.CIDRMask(15, 32)}
+var FAKEDNS_VLAN6_CLIENT_IPNET = net.IPNet{IP: net.ParseIP("fc00::").To16(), Mask: net.CIDRMask(18, 128)}
 
 type TunConfig struct {
 	FileDescriptor int32
@@ -192,7 +193,7 @@ func (t *V2Tun) NewPacketConnection(ctx context.Context, conn N.PacketConn, meta
 	serverConn := &linkPacketConn{
 		dest: destination,
 		link: link,
-		fake: FAKEDNS_VLAN4_CLIENT_IPNET.Contains(destination.Address.IP()),
+		fake: FAKEDNS_VLAN4_CLIENT_IPNET.Contains(destination.Address.IP()) || FAKEDNS_VLAN6_CLIENT_IPNET.Contains(destination.Address.IP()),
 	}
 	return bufio.CopyPacketConn(ctx, conn, serverConn)
 }

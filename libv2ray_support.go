@@ -140,7 +140,8 @@ func (d *ProtectedDialer) Init(_ dns.Client, _ outbound.Manager) {
 func (d *ProtectedDialer) Dial(ctx context.Context,
 	src v2net.Address, dest v2net.Destination, sockopt *v2internet.SocketConfig) (conn net.Conn, err error) {
 
-	if dest.Address.Family().IsIP() && FAKEDNS_VLAN4_CLIENT_IPNET.Contains(dest.Address.IP()) {
+	if dest.Address.Family().IsIP() &&
+		(FAKEDNS_VLAN4_CLIENT_IPNET.Contains(dest.Address.IP()) || FAKEDNS_VLAN6_CLIENT_IPNET.Contains(dest.Address.IP())) {
 		// fake ip
 		outbound := session.OutboundFromContext(ctx)
 		if outbound == nil || !outbound.Target.IsValid() {
