@@ -10,12 +10,29 @@ import (
 	"strings"
 	"time"
 
+	_ "unsafe"
+
 	v2net "github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/features/dns"
 	"github.com/xtls/xray-core/features/outbound"
+	"github.com/xtls/xray-core/transport/internet"
 	v2internet "github.com/xtls/xray-core/transport/internet"
 	"golang.org/x/sys/unix"
 )
+
+//go:linkname effectiveSystemDialer_ github.com/xtls/xray-core/transport/internet.effectiveSystemDialer
+var effectiveSystemDialer_ internet.SystemDialer
+
+var v2rayDefaultDialer *internet.DefaultSystemDialer
+
+func init() {
+	var ok bool
+	v2rayDefaultDialer, ok = effectiveSystemDialer_.(*internet.DefaultSystemDialer)
+	if !ok {
+		panic("DefaultSystemDialer not found")
+	}
+}
 
 type protectSet interface {
 	Protect(int) bool
@@ -91,28 +108,7 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 	}
 
 	if err == nil {
-		IPs = make([]net.IP, 0)
-		//ipv6 is prefer, append ipv6 then ipv4
-		//ipv6 is not prefer, append ipv4 then ipv6
-		if d.preferIPv6 {
-			for _, ip := range addrs {
-				if ip.To4() == nil {
-					IPs = append(IPs, ip)
-				}
-			}
-		}
-		for _, ip := range addrs {
-			if ip.To4() != nil {
-				IPs = append(IPs, ip)
-			}
-		}
-		if !d.preferIPv6 {
-			for _, ip := range addrs {
-				if ip.To4() == nil {
-					IPs = append(IPs, ip)
-				}
-			}
-		}
+		IPs = reorderAddresses(addrs, d.preferIPv6)
 	}
 
 	return
@@ -138,27 +134,43 @@ func (d *ProtectedDialer) Init(_ dns.Client, _ outbound.Manager) {
 // Dial exported as the protected dial method
 func (d *ProtectedDialer) Dial(ctx context.Context,
 	src v2net.Address, dest v2net.Destination, sockopt *v2internet.SocketConfig) (conn net.Conn, err error) {
-	var ips []net.IP
-	if dest.Address.Family().IsDomain() {
+	var ip net.IP
+	if dest.Address.Family().IsIP() {
+		ip = dest.Address.IP()
+		if ip.IsLoopback() { // is it more effective
+			return v2rayDefaultDialer.Dial(ctx, src, dest, sockopt)
+		}
+		return d.fdConn(ctx, dest.Network, ip, int(dest.Port))
+	}
+
+	ob := session.OutboundFromContext(ctx)
+	if ob == nil {
+		return nil, errors.New("outbound is not specified")
+	}
+
+	r := ob.Resolved
+	if r == nil {
+		var ips []net.IP
 		ips, err = d.lookupAddr("ip", dest.Address.Domain())
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		ips = []net.IP{dest.Address.IP()}
+
+		r = &session.Resolved{
+			IPs: ips,
+		}
+		ob.Resolved = r
 	}
 
-	for i, ip := range ips {
-		if i > 0 {
-			if err == nil {
-				break
-			} else {
-				log.Printf("dial system failed, Err: %s\n", err.Error())
-				time.Sleep(time.Millisecond * 200)
-			}
-			log.Printf("trying next address: %s", ip.String())
-		}
-		conn, err = d.fdConn(ctx, dest.Network, ip, int(dest.Port))
+	ip = r.CurrentIP()
+	if ip == nil {
+		return nil, errors.New("no IP specified")
+	}
+
+	conn, err = d.fdConn(ctx, dest.Network, ip, int(dest.Port))
+	if err != nil {
+		r.NextIP()
+		return nil, err
 	}
 
 	return conn, err
@@ -202,4 +214,16 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, network v2net.Network, ip 
 	}
 
 	return conn, nil
+}
+
+func reorderAddresses(ips []net.IP, preferIPv6 bool) []net.IP {
+	var result []net.IP
+	for i := 0; i < 2; i++ {
+		for _, ip := range ips {
+			if (preferIPv6 == (i == 0)) == (ip.To4() == nil) {
+				result = append(result, ip)
+			}
+		}
+	}
+	return result
 }
