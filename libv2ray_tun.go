@@ -65,6 +65,8 @@ func NewV2Tun(config *TunConfig) (*V2Tun, error) {
 
 	var stack string
 	switch config.Implementation {
+	case 2:
+		stack = "mixed"
 	case 1:
 		stack = "system"
 	default:
