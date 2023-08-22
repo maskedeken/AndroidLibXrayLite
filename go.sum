@@ -134,8 +134,8 @@ github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97/go.mod h1:xLnfdiJ
 github.com/sagernet/sing v0.0.0-20220817130738-ce854cda8522/go.mod h1:QVsS5L/ZA2Q5UhQwLrn0Trw+msNd/NPGEhBKR/ioWiY=
 github.com/sagernet/sing v0.2.9 h1:3wsTz+JG5Wzy65eZnh6AuCrD2QqcRF6Iq6f7ttmJsAo=
 github.com/sagernet/sing v0.2.9/go.mod h1:Ta8nHnDLAwqySzKhGoKk4ZIB+vJ3GTKj7UPrWYvM+4w=
-github.com/sagernet/sing-tun v0.1.12-0.20230820091922-db70908d6125 h1:ZqNuG9t4lAZbiqMSJN/nNv7ZtRRpm7h46KrmnkuhW9w=
-github.com/sagernet/sing-tun v0.1.12-0.20230820091922-db70908d6125/go.mod h1:+YImslQMLgMQcVgZZ9IK4ue1o/605VSU90amHUcp4hA=
+github.com/sagernet/sing-tun v0.1.12-0.20230821065522-7545dc2d5641 h1:a8lktNrCWZJisB+nPraW+qB73ZofgPtGmlfqNYcO79g=
+github.com/sagernet/sing-tun v0.1.12-0.20230821065522-7545dc2d5641/go.mod h1:+YImslQMLgMQcVgZZ9IK4ue1o/605VSU90amHUcp4hA=
 github.com/sagernet/wireguard-go v0.0.0-20221116151939-c99467f53f2c h1:vK2wyt9aWYHHvNLWniwijBu/n4pySypiKRhN32u/JGo=
 github.com/sagernet/wireguard-go v0.0.0-20221116151939-c99467f53f2c/go.mod h1:euOmN6O5kk9dQmgSS8Df4psAl3TCjxOz0NW60EWkSaI=
 github.com/scjalliance/comshim v0.0.0-20230315213746-5e51f40bd3b9 h1:rc/CcqLH3lh8n+csdOuDfP+NuykE0U6AeYSJJHKDgSg=

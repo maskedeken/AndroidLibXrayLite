@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/sagernet/sing v0.2.9
-	github.com/sagernet/sing-tun v0.1.12-0.20230820091922-db70908d6125
+	github.com/sagernet/sing-tun v0.1.12-0.20230821065522-7545dc2d5641
 	github.com/xtls/xray-core v1.0.0
 	golang.org/x/mobile v0.0.0-20230531173138-3c911d8e3eda
 	golang.org/x/sys v0.11.0
