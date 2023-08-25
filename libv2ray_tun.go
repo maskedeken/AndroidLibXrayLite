@@ -24,6 +24,7 @@ import (
 	"github.com/xtls/xray-core/transport"
 )
 
+const LOCALHOST = "127.0.0.1"
 const PRIVATE_VLAN4_CLIENT = "26.26.26.1"
 const PRIVATE_VLAN4_ROUTER = "26.26.26.2"
 const PRIVATE_VLAN6_CLIENT = "da26:2626::1"
@@ -118,7 +119,7 @@ func (t *V2Tun) NewConnection(ctx context.Context, conn net.Conn, metadata M.Met
 	})
 
 	// [TCP] dns to router
-	isDns := destination.Address.String() == PRIVATE_VLAN4_ROUTER && destination.Port.Value() == 53
+	isDns := (destination.Address.String() == PRIVATE_VLAN4_ROUTER || destination.Address.String() == LOCALHOST) && destination.Port.Value() == 53
 	if isDns {
 		ctx = session.SetForcedOutboundTagToContext(ctx, "dns-out")
 	}
