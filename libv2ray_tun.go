@@ -34,12 +34,13 @@ var FAKEDNS_VLAN4_CLIENT_IPNET = net.IPNet{IP: net.ParseIP("198.18.0.0").To4(), 
 var FAKEDNS_VLAN6_CLIENT_IPNET = net.IPNet{IP: net.ParseIP("fc00::").To16(), Mask: net.CIDRMask(18, 128)}
 
 type TunConfig struct {
-	FileDescriptor int32
-	MTU            int32
-	V2Ray          *V2RayPoint
-	Implementation int32
-	Sniffing       bool
-	FakeDNS        bool
+	FileDescriptor      int32
+	MTU                 int32
+	V2Ray               *V2RayPoint
+	Implementation      int32
+	Sniffing            bool
+	FakeDNS             bool
+	OverrideDestination bool
 }
 
 type V2Tun struct {
@@ -47,8 +48,9 @@ type V2Tun struct {
 	dev    singtun.Tun
 	stack  singtun.Stack
 
-	fakedns  bool
-	sniffing bool
+	fakedns             bool
+	sniffing            bool
+	overrideDestination bool
 }
 
 func NewV2Tun(config *TunConfig) (*V2Tun, error) {
@@ -75,10 +77,11 @@ func NewV2Tun(config *TunConfig) (*V2Tun, error) {
 	}
 
 	v2tun := &V2Tun{
-		vpoint:   config.V2Ray.Vpoint,
-		dev:      dev,
-		fakedns:  config.FakeDNS,
-		sniffing: config.Sniffing,
+		vpoint:              config.V2Ray.Vpoint,
+		dev:                 dev,
+		fakedns:             config.FakeDNS,
+		sniffing:            config.Sniffing,
+		overrideDestination: config.OverrideDestination,
 	}
 	v2tun.stack, err = singtun.NewStack(stack, singtun.StackOptions{
 		Context:      context.Background(),
@@ -129,7 +132,7 @@ func (t *V2Tun) NewConnection(ctx context.Context, conn net.Conn, metadata M.Met
 		req := session.SniffingRequest{
 			Enabled:      true,
 			MetadataOnly: t.fakedns && !t.sniffing,
-			RouteOnly:    true,
+			RouteOnly:    !t.sniffing || !t.overrideDestination,
 		}
 		if t.sniffing && t.fakedns {
 			req.OverrideDestinationForProtocol = []string{"fakedns", "http", "tls"}
@@ -180,7 +183,7 @@ func (t *V2Tun) NewPacketConnection(ctx context.Context, conn N.PacketConn, meta
 					Enabled:                        true,
 					MetadataOnly:                   t.fakedns && !t.sniffing,
 					OverrideDestinationForProtocol: override,
-					RouteOnly:                      true,
+					RouteOnly:                      !t.sniffing || !t.overrideDestination,
 				},
 			})
 		}
