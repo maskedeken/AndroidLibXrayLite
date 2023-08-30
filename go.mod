@@ -62,6 +62,6 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/xtls/xray-core => github.com/maskedeken/xray-core v1.1.4-0.20230830022318-b08c59003f4f
+replace github.com/xtls/xray-core => github.com/maskedeken/xray-core v1.1.4-0.20230830065420-974fcdb05337
 
 replace github.com/sagernet/sing-shadowsocks => github.com/maskedeken/sing-shadowsocks v0.0.0-20230726012209-ce47d8ecba9d

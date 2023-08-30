@@ -140,7 +140,7 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 		if ip.IsLoopback() { // is it more effective
 			return v2rayDefaultDialer.Dial(ctx, src, dest, sockopt)
 		}
-		return d.fdConn(ctx, dest.Network, ip, int(dest.Port))
+		return d.fdConn(ctx, dest, sockopt)
 	}
 
 	ob := session.OutboundFromContext(ctx)
@@ -167,7 +167,9 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 		return nil, errors.New("no IP specified")
 	}
 
-	conn, err = d.fdConn(ctx, dest.Network, ip, int(dest.Port))
+	dest2 := dest
+	dest2.Address = v2net.IPAddress(ip)
+	conn, err = d.fdConn(ctx, dest2, sockopt)
 	if err != nil {
 		r.NextIP()
 		return nil, err
@@ -176,8 +178,8 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	return conn, err
 }
 
-func (d *ProtectedDialer) fdConn(ctx context.Context, network v2net.Network, ip net.IP, port int) (net.Conn, error) {
-	fd, err := d.getFd(network)
+func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, sockopt *v2internet.SocketConfig) (net.Conn, error) {
+	fd, err := d.getFd(dest.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -189,10 +191,15 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, network v2net.Network, ip 
 		return nil, errors.New("fail to protect")
 	}
 
-	sa := &unix.SockaddrInet6{
-		Port: port,
+	// Apply sockopt
+	if sockopt != nil {
+		internet.ApplySockopt(ctx, dest, uintptr(fd), sockopt)
 	}
-	copy(sa.Addr[:], ip.To16())
+
+	sa := &unix.SockaddrInet6{
+		Port: int(dest.Port.Value()),
+	}
+	copy(sa.Addr[:], dest.Address.IP().To16())
 
 	if err := unix.Connect(fd, sa); err != nil {
 		log.Printf("fdConn unix.Connect err, Close Fd: %d Err: %v", fd, err)
