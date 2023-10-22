@@ -54,13 +54,19 @@ type V2Tun struct {
 }
 
 func NewV2Tun(config *TunConfig) (*V2Tun, error) {
+	var addr4, addr6 []netip.Prefix
 	prefix4, _ := netip.ParsePrefix(PRIVATE_VLAN4_CLIENT + "/30")
-	prefix6, _ := netip.ParsePrefix(PRIVATE_VLAN6_CLIENT + "/126")
+	addr4 = append(addr4, prefix4)
+	if config.V2Ray.dialer.preferIPv6 {
+		prefix6, _ := netip.ParsePrefix(PRIVATE_VLAN6_CLIENT + "/126")
+		addr6 = append(addr6, prefix6)
+	}
+
 	dev, err := singtun.New(singtun.Options{
 		FileDescriptor: int(config.FileDescriptor),
 		MTU:            uint32(config.MTU),
-		Inet4Address:   []netip.Prefix{prefix4},
-		Inet6Address:   []netip.Prefix{prefix6},
+		Inet4Address:   addr4,
+		Inet6Address:   addr6,
 	})
 	if err != nil {
 		return nil, err
@@ -88,8 +94,8 @@ func NewV2Tun(config *TunConfig) (*V2Tun, error) {
 		Name:         "v2tun",
 		MTU:          uint32(config.MTU),
 		Tun:          dev,
-		Inet4Address: []netip.Prefix{prefix4},
-		Inet6Address: []netip.Prefix{prefix6},
+		Inet4Address: addr4,
+		Inet6Address: addr6,
 		UDPTimeout:   30,
 		Handler:      v2tun,
 		Logger:       logger.NOP(),
