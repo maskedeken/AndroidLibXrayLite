@@ -5,8 +5,8 @@ go 1.21
 toolchain go1.21.0
 
 require (
-	github.com/sagernet/sing v0.2.13
-	github.com/sagernet/sing-tun v0.1.15
+	github.com/sagernet/sing v0.2.14
+	github.com/sagernet/sing-tun v0.1.16-0.20231022145846-fe9891a78413
 	github.com/xtls/xray-core v1.0.0 // replace
 	golang.org/x/mobile v0.0.0-20231006135142-2b44d11868fe
 	golang.org/x/sys v0.13.0
@@ -16,7 +16,7 @@ require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/dgryski/go-metro v0.0.0-20211217172704-adc40b04c140 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -36,7 +36,7 @@ require (
 	github.com/refraction-networking/utls v1.4.3 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/sagernet/go-tun2socks v1.16.12-0.20220818015926-16cb67876a61 // indirect
-	github.com/sagernet/gvisor v0.0.0-20230627031050-1ab0276e0dd2 // indirect
+	github.com/sagernet/gvisor v0.0.0-20230930141345-5fef6f2e17ab // indirect
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97 // indirect
 	github.com/sagernet/sing-shadowsocks v0.2.5 // indirect
 	github.com/sagernet/wireguard-go v0.0.0-20221116151939-c99467f53f2c // indirect
@@ -50,7 +50,7 @@ require (
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/mod v0.13.0 // indirect
-	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
