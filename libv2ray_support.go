@@ -6,18 +6,21 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
-	"strings"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	_ "unsafe"
 
+	D "github.com/xtls/xray-core/app/dns"
 	v2net "github.com/xtls/xray-core/common/net"
+	v2dns "github.com/xtls/xray-core/common/protocol/dns"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/features/dns"
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/transport/internet"
 	v2internet "github.com/xtls/xray-core/transport/internet"
+	"golang.org/x/net/dns/dnsmessage"
 	"golang.org/x/sys/unix"
 )
 
@@ -32,6 +35,65 @@ func init() {
 	if !ok {
 		panic("DefaultSystemDialer not found")
 	}
+}
+
+type Func interface {
+	Invoke() error
+}
+
+type ExchangeContext struct {
+	context   context.Context
+	addresses []net.IP
+	error     error
+}
+
+func (c *ExchangeContext) OnCancel(callback Func) {
+	go func() {
+		<-c.context.Done()
+		callback.Invoke()
+	}()
+}
+
+func (c *ExchangeContext) Success(result []byte) {
+	if len(result) == 0 {
+		return
+	}
+
+	c.addresses, c.error = parseResponse(result)
+}
+
+func (c *ExchangeContext) ErrnoCode(code int32) {
+	c.error = syscall.Errno(code)
+}
+
+// parseResponse parses DNS answers from the returned payload
+func parseResponse(payload []byte) ([]net.IP, error) {
+	var parser dnsmessage.Parser
+	_, err := parser.Start(payload)
+	if err != nil {
+		return nil, err
+	}
+	if err = parser.SkipAllQuestions(); err != nil {
+		return nil, err
+	}
+	answers, err := parser.AllAnswers()
+	if err != nil {
+		return nil, err
+	}
+
+	var addresses []net.IP
+	for _, res := range answers {
+		switch res.Header.Type {
+		case dnsmessage.TypeA:
+			ans := res.Body.(*dnsmessage.AResource)
+			addresses = append(addresses, ans.A[:])
+		case dnsmessage.TypeAAAA:
+			ans := res.Body.(*dnsmessage.AAAAResource)
+			addresses = append(addresses, ans.AAAA[:])
+		}
+	}
+
+	return addresses, nil
 }
 
 type protectSet interface {
@@ -54,8 +116,13 @@ type ProtectedDialer struct {
 	currentServer string
 	preferIPv6    bool
 	resolver      *net.Resolver
+	reqID         uint32
 
 	protectSet
+}
+
+func (d *ProtectedDialer) newReqID() uint16 {
+	return uint16(atomic.AddUint32(&d.reqID, 1))
 }
 
 func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.IP, err error) {
@@ -77,20 +144,29 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 		}()
 
 		if underlyingResolver != nil {
-			var str string
-			str, err = underlyingResolver.LookupIP(network, domain)
-			// java -> go
-			if err != nil {
-				rcode, err2 := strconv.Atoi(err.Error())
-				if err2 == nil {
-					err = dns.RCodeError(rcode)
+			ip6Ch := make(chan []net.IP, 1)
+			go func() { // query IPv6 address
+				defer close(ip6Ch)
+
+				if underlyingResolver.HaveIPv6() {
+					ip6, err := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
+					if err != nil {
+						return
+					}
+
+					ip6Ch <- ip6
 				}
-			} else if str == "" {
-				err = dns.ErrEmptyResponse
+			}()
+
+			if underlyingResolver.HaveIPv4() {
+				ip4, err2 := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
+				if err2 == nil {
+					addrs = append(addrs, ip4...)
+				}
 			}
-			addrs = make([]net.IP, 0)
-			for _, ip := range strings.Split(str, ",") {
-				addrs = append(addrs, net.ParseIP(ip))
+
+			if ip6, ok := <-ip6Ch; ok {
+				addrs = append(addrs, ip6...)
 			}
 		} else {
 			addrs, err = d.resolver.LookupIP(ctx, network, domain)
@@ -112,6 +188,32 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 	}
 
 	return
+}
+
+func (d *ProtectedDialer) exchange(ctx context.Context, resolver UnderlyingResolver, domain string, nsType dnsmessage.Type) ([]net.IP, error) {
+	fqdn := D.Fqdn(domain)
+	query := dnsmessage.Question{
+		Name:  dnsmessage.MustNewName(fqdn),
+		Type:  nsType,
+		Class: dnsmessage.ClassINET,
+	}
+	msg := new(dnsmessage.Message)
+	msg.Header.ID = d.newReqID()
+	msg.Header.RecursionDesired = true
+	msg.Questions = []dnsmessage.Question{query}
+	b, err := v2dns.PackMessage(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExchangeContext{
+		context: ctx,
+	}
+	err = resolver.Exchange(response, b.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return response.addresses, response.error
 }
 
 func (d *ProtectedDialer) getFd(network v2net.Network) (fd int, err error) {

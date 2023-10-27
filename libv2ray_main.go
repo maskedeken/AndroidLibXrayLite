@@ -52,7 +52,9 @@ type V2RayPoint struct {
 }
 
 type UnderlyingResolver interface {
-	LookupIP(network string, domain string) (string, error)
+	Exchange(ctx *ExchangeContext, message []byte) error
+	HaveIPv4() bool
+	HaveIPv6() bool
 }
 
 /*V2RayVPNServiceSupportsSet To support Android VPN mode*/
