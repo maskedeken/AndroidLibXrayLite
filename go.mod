@@ -4,7 +4,7 @@ go 1.21.4
 
 require (
 	github.com/sagernet/sing v0.2.17
-	github.com/sagernet/sing-tun v0.1.20-0.20231113053348-91024284375c
+	github.com/sagernet/sing-tun v0.1.20-0.20231114114131-5077961c111f
 	github.com/xtls/xray-core v1.0.0 // replace
 	golang.org/x/mobile v0.0.0-20231108233038-35478a0c49da
 	golang.org/x/sys v0.14.0
