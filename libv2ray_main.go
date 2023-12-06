@@ -17,6 +17,7 @@ import (
 	mobasset "golang.org/x/mobile/asset"
 
 	v2net "github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/common/platform"
 	v2filesystem "github.com/xtls/xray-core/common/platform/filesystem"
 	v2core "github.com/xtls/xray-core/core"
 	v2stats "github.com/xtls/xray-core/features/stats"
@@ -26,11 +27,6 @@ import (
 
 	v2applog "github.com/xtls/xray-core/app/log"
 	v2commlog "github.com/xtls/xray-core/common/log"
-)
-
-const (
-	v2Asset     = "xray.location.asset"
-	xudpBaseKey = "xray.xudp.basekey"
 )
 
 /*
@@ -167,10 +163,10 @@ func InitV2Env(envPath string, key string) {
 	//Initialize asset API, Since Raymond Will not let notify the asset location inside Process,
 	//We need to set location outside V2Ray
 	if len(envPath) > 0 {
-		os.Setenv(v2Asset, envPath)
+		os.Setenv(platform.AssetLocation, envPath)
 	}
 	if len(key) > 0 {
-		os.Setenv(xudpBaseKey, key)
+		os.Setenv(platform.XUDPBaseKey, key)
 	}
 
 	//Now we handle read, fallback to gomobile asset (apk assets)

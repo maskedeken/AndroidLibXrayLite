@@ -125,6 +125,8 @@ func (t *V2Tun) NewConnection(ctx context.Context, conn net.Conn, metadata M.Met
 	ctx = core.WithContext(ctx, t.vpoint)
 	ctx = session.ContextWithInbound(ctx, &session.Inbound{
 		Source: source,
+		Name:   "socks",
+		Conn:   conn,
 	})
 
 	// [TCP] dns to router
@@ -170,6 +172,7 @@ func (t *V2Tun) NewPacketConnection(ctx context.Context, conn N.PacketConn, meta
 	destination := singbridge.ToDestination(metadata.Destination, v2net.Network_UDP)
 	ctx = session.ContextWithInbound(ctx, &session.Inbound{
 		Source: source,
+		Name:   "socks",
 	})
 
 	// [UDP] dns to router
