@@ -3,14 +3,14 @@ module github.com/2dust/AndroidLibXrayLite
 go 1.21.4
 
 require (
-	github.com/sagernet/sing v0.2.18-0.20231119032432-6a556bfa50cc
-	github.com/sagernet/sing-tun v0.1.20-0.20231119035513-f6ea97c5af71
+	github.com/sagernet/sing v0.2.18
+	github.com/sagernet/sing-tun v0.1.22
 	github.com/xtls/xray-core v1.0.0 // replace
 	golang.org/x/mobile v0.0.0-20231108233038-35478a0c49da
-	golang.org/x/sys v0.14.0
+	golang.org/x/sys v0.15.0
 )
 
-require golang.org/x/net v0.18.0
+require golang.org/x/net v0.19.0
 
 require (
 	github.com/andybalholm/brotli v1.0.6 // indirect
@@ -46,8 +46,8 @@ require (
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/xtls/reality v0.0.0-20231112171332-de1173cf2b19 // indirect
 	go.uber.org/mock v0.3.0 // indirect
-	go4.org/netipx v0.0.0-20230824141953-6213f710f925 // indirect
-	golang.org/x/crypto v0.15.0 // indirect
+	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
+	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
