@@ -123,16 +123,21 @@ func (t *V2Tun) NewConnection(ctx context.Context, conn net.Conn, metadata M.Met
 	destination := singbridge.ToDestination(metadata.Destination, v2net.Network_TCP)
 	dispatcher := t.vpoint.GetFeature(routing.DispatcherType()).(routing.Dispatcher)
 	ctx = core.WithContext(ctx, t.vpoint)
-	ctx = session.ContextWithInbound(ctx, &session.Inbound{
+	inbound := &session.Inbound{
 		Source: source,
-		Name:   "socks",
 		Conn:   conn,
-	})
+	}
+	ctx = session.ContextWithInbound(ctx, inbound)
 
 	// [TCP] dns to router
 	isDns := (destination.Address.String() == PRIVATE_VLAN4_ROUTER || destination.Address.String() == LOCALHOST) && destination.Port.Value() == 53
 	if isDns {
+		inbound.Name = "dokodemo-door"
+		inbound.Tag = "dns-in"
 		ctx = session.SetForcedOutboundTagToContext(ctx, "dns-out")
+	} else {
+		inbound.Name = "socks"
+		inbound.Tag = "socks"
 	}
 
 	// [tun-in] [TCP] sniffing
@@ -170,15 +175,21 @@ func (t *V2Tun) NewConnection(ctx context.Context, conn net.Conn, metadata M.Met
 func (t *V2Tun) NewPacketConnection(ctx context.Context, conn N.PacketConn, metadata M.Metadata) error {
 	source := singbridge.ToDestination(metadata.Source, v2net.Network_UDP)
 	destination := singbridge.ToDestination(metadata.Destination, v2net.Network_UDP)
-	ctx = session.ContextWithInbound(ctx, &session.Inbound{
+	inbound := &session.Inbound{
 		Source: source,
-		Name:   "socks",
-	})
+	}
+	ctx = session.ContextWithInbound(ctx, inbound)
 
 	// [UDP] dns to router
 	if destination.Address.String() == PRIVATE_VLAN4_ROUTER {
+		inbound.Name = "dokodemo-door"
+		inbound.Tag = "dns-in"
 		ctx = session.SetForcedOutboundTagToContext(ctx, "dns-out")
-	} else { // [UDP] sniffing
+	} else {
+		inbound.Name = "socks"
+		inbound.Tag = "socks"
+
+		// [UDP] sniffing
 		override := []string{}
 		if t.fakedns {
 			override = append(override, "fakedns")
