@@ -132,7 +132,6 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 	ok := make(chan interface{})
 	defer cancel()
 
-	var addrs []net.IP
 	go func() {
 		defer func() {
 			select {
@@ -144,35 +143,38 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 		}()
 
 		if underlyingResolver != nil {
-			ip6Ch := make(chan []net.IP, 1)
-			go func() { // query IPv6 address
-				defer close(ip6Ch)
+			switch network {
+			case "ip4":
+				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
+			case "ip6":
+				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
+			default:
+				ip6Ch := make(chan []net.IP, 1)
+				go func() { // query IPv6 address
+					defer close(ip6Ch)
 
-				if underlyingResolver.HaveIPv6() {
 					ip6, err := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
 					if err != nil {
 						return
 					}
 
 					ip6Ch <- ip6
-				}
-			}()
+				}()
 
-			if underlyingResolver.HaveIPv4() {
 				ip4, err2 := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
 				if err2 == nil {
-					addrs = append(addrs, ip4...)
+					IPs = append(IPs, ip4...)
+				}
+
+				if ip6, ok := <-ip6Ch; ok {
+					IPs = append(IPs, ip6...)
 				}
 			}
-
-			if ip6, ok := <-ip6Ch; ok {
-				addrs = append(addrs, ip6...)
-			}
 		} else {
-			addrs, err = d.resolver.LookupIP(ctx, network, domain)
+			IPs, err = d.resolver.LookupIP(ctx, network, domain)
 		}
 
-		if err == nil && len(addrs) == 0 {
+		if err == nil && len(IPs) == 0 {
 			err = dns.ErrEmptyResponse
 		}
 	}()
@@ -183,8 +185,8 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 	case <-ok:
 	}
 
-	if err == nil {
-		IPs = reorderAddresses(addrs, d.preferIPv6)
+	if err == nil && network == "ip" {
+		IPs = reorderAddresses(IPs, d.preferIPv6)
 	}
 
 	return
@@ -253,7 +255,15 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	r := ob.Resolved
 	if r == nil {
 		var ips []net.IP
-		ips, err = d.lookupAddr("ip", dest.Address.Domain())
+		haveV4 := d.HaveIPv4()
+		haveV6 := d.HaveIPv6()
+		var network = "ip"
+		if haveV4 && !haveV6 {
+			network = "ip4"
+		} else if !haveV4 && haveV6 {
+			network = "ip6"
+		}
+		ips, err = d.lookupAddr(network, dest.Address.Domain())
 		if err != nil {
 			return nil, err
 		}
@@ -278,6 +288,44 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	}
 
 	return conn, err
+}
+
+/**
+ * Check if given network has Ipv4 capability
+ * This function matches the behaviour of have_ipv4 in the native resolver.
+ */
+func (d *ProtectedDialer) HaveIPv4() bool {
+	dest, _ := v2net.ParseDestination("udp:8.8.8.8:0")
+	return d.checkConnectivity(dest)
+}
+
+/**
+ * Check if given network has Ipv6 capability
+ * This function matches the behaviour of have_ipv6 in the native resolver.
+ */
+func (d *ProtectedDialer) HaveIPv6() bool {
+	dest, _ := v2net.ParseDestination("udp:[2000::]:0")
+	return d.checkConnectivity(dest)
+}
+
+func (d *ProtectedDialer) checkConnectivity(dest v2net.Destination) bool {
+	fd, err := d.getFd(dest.Network)
+	if err != nil {
+		log.Printf("checkConnectivity: fail to open socket, Err: %v", err)
+		return false
+	}
+	defer unix.Close(fd)
+
+	if !d.Protect(fd) {
+		log.Printf("checkConnectivity: fail to protect, Close Fd: %d", fd)
+		return false
+	}
+
+	sa := &unix.SockaddrInet6{
+		Port: int(dest.Port.Value()),
+	}
+	copy(sa.Addr[:], dest.Address.IP().To16())
+	return unix.Connect(fd, sa) == nil
 }
 
 func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, sockopt *v2internet.SocketConfig) (net.Conn, error) {
