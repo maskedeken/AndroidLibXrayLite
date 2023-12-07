@@ -295,8 +295,7 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
  * This function matches the behaviour of have_ipv4 in the native resolver.
  */
 func (d *ProtectedDialer) HaveIPv4() bool {
-	dest, _ := v2net.ParseDestination(TEST_DESTINATION_IPV4)
-	return d.checkConnectivity(dest)
+	return d.checkConnectivity(TEST_DESTINATION_IPV4)
 }
 
 /**
@@ -304,8 +303,7 @@ func (d *ProtectedDialer) HaveIPv4() bool {
  * This function matches the behaviour of have_ipv6 in the native resolver.
  */
 func (d *ProtectedDialer) HaveIPv6() bool {
-	dest, _ := v2net.ParseDestination(TEST_DESTINATION_IPV6)
-	return d.checkConnectivity(dest)
+	return d.checkConnectivity(TEST_DESTINATION_IPV6)
 }
 
 func (d *ProtectedDialer) checkConnectivity(dest v2net.Destination) bool {
