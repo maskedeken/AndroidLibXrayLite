@@ -148,7 +148,7 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
 			case "ip6":
 				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
-			default:
+			case "ip":
 				ip6Ch := make(chan []net.IP, 1)
 				go func() { // query IPv6 address
 					defer close(ip6Ch)
@@ -169,6 +169,8 @@ func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.I
 				if ip6, ok := <-ip6Ch; ok {
 					IPs = append(IPs, ip6...)
 				}
+			default:
+				err = net.UnknownNetworkError(network)
 			}
 		} else {
 			IPs, err = d.resolver.LookupIP(ctx, network, domain)
@@ -255,9 +257,9 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	r := ob.Resolved
 	if r == nil {
 		var ips []net.IP
-		haveV4 := d.HaveIPv4()
-		haveV6 := d.HaveIPv6()
-		var network = "ip"
+		haveV4 := d.haveIPv4()
+		haveV6 := d.haveIPv6()
+		network := "ip"
 		if haveV4 && !haveV6 {
 			network = "ip4"
 		} else if !haveV4 && haveV6 {
@@ -294,7 +296,7 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
  * Check if given network has Ipv4 capability
  * This function matches the behaviour of have_ipv4 in the native resolver.
  */
-func (d *ProtectedDialer) HaveIPv4() bool {
+func (d *ProtectedDialer) haveIPv4() bool {
 	return d.checkConnectivity(TEST_DESTINATION_IPV4)
 }
 
@@ -302,7 +304,7 @@ func (d *ProtectedDialer) HaveIPv4() bool {
  * Check if given network has Ipv6 capability
  * This function matches the behaviour of have_ipv6 in the native resolver.
  */
-func (d *ProtectedDialer) HaveIPv6() bool {
+func (d *ProtectedDialer) haveIPv6() bool {
 	return d.checkConnectivity(TEST_DESTINATION_IPV6)
 }
 
