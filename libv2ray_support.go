@@ -125,7 +125,19 @@ func (d *ProtectedDialer) newReqID() uint16 {
 	return uint16(atomic.AddUint32(&d.reqID, 1))
 }
 
-func (d *ProtectedDialer) lookupAddr(network string, domain string) (IPs []net.IP, err error) {
+func (d *ProtectedDialer) lookupAddr(domain string) ([]net.IP, error) {
+	haveV4 := d.haveIPv4()
+	haveV6 := d.haveIPv6()
+	network := "ip"
+	if haveV4 && !haveV6 {
+		network = "ip4"
+	} else if !haveV4 && haveV6 {
+		network = "ip6"
+	}
+	return d.internalLookupAddr(network, domain)
+}
+
+func (d *ProtectedDialer) internalLookupAddr(network string, domain string) (IPs []net.IP, err error) {
 	underlyingResolver := d.GetResolver()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -257,15 +269,7 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	r := ob.Resolved
 	if r == nil {
 		var ips []net.IP
-		haveV4 := d.haveIPv4()
-		haveV6 := d.haveIPv6()
-		network := "ip"
-		if haveV4 && !haveV6 {
-			network = "ip4"
-		} else if !haveV4 && haveV6 {
-			network = "ip6"
-		}
-		ips, err = d.lookupAddr(network, dest.Address.Domain())
+		ips, err = d.lookupAddr(dest.Address.Domain())
 		if err != nil {
 			return nil, err
 		}
@@ -326,6 +330,24 @@ func (d *ProtectedDialer) checkConnectivity(dest v2net.Destination) bool {
 	}
 	copy(sa.Addr[:], dest.Address.IP().To16())
 	return unix.Connect(fd, sa) == nil
+}
+
+func (d *ProtectedDialer) DestIpAddress() net.IP {
+	host, _, err := net.SplitHostPort(d.currentServer)
+	if err != nil {
+		return nil
+	}
+
+	ip := net.ParseIP(host)
+	if ip != nil {
+		return ip
+	}
+
+	ips, err := d.lookupAddr(host)
+	if err != nil {
+		return nil
+	}
+	return ips[0]
 }
 
 func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, sockopt *v2internet.SocketConfig) (net.Conn, error) {

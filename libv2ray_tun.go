@@ -81,15 +81,17 @@ func NewV2Tun(config *TunConfig) (*V2Tun, error) {
 		overrideDestination: config.OverrideDestination,
 	}
 	v2tun.stack, err = singtun.NewStack(stack, singtun.StackOptions{
-		Context:      context.Background(),
-		Name:         "v2tun",
-		MTU:          uint32(config.MTU),
-		Tun:          dev,
-		Inet4Address: addr4,
-		Inet6Address: addr6,
-		UDPTimeout:   30,
-		Handler:      v2tun,
-		Logger:       logger.NOP(),
+		Context: context.Background(),
+		Tun:     dev,
+		TunOptions: singtun.Options{
+			Name:         "v2tun",
+			MTU:          uint32(config.MTU),
+			Inet4Address: addr4,
+			Inet6Address: addr6,
+		},
+		UDPTimeout: 30,
+		Handler:    v2tun,
+		Logger:     logger.NOP(),
 	})
 	if err != nil {
 		dev.Close()
