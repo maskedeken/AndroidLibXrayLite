@@ -13,13 +13,12 @@ import (
 	_ "unsafe"
 
 	D "github.com/xtls/xray-core/app/dns"
+	"github.com/xtls/xray-core/common/dice"
 	v2net "github.com/xtls/xray-core/common/net"
 	v2dns "github.com/xtls/xray-core/common/protocol/dns"
-	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/features/dns"
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/transport/internet"
-	v2internet "github.com/xtls/xray-core/transport/internet"
 	"golang.org/x/net/dns/dnsmessage"
 	"golang.org/x/sys/unix"
 )
@@ -156,30 +155,38 @@ func (d *ProtectedDialer) internalLookupAddr(network string, domain string) (IPs
 
 		if underlyingResolver != nil {
 			switch network {
-			case "ip4":
-				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
-			case "ip6":
-				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
+			case "ip4", "ip6":
+				dnsType := dnsmessage.TypeA
+				if network == "ip6" {
+					dnsType = dnsmessage.TypeAAAA
+				}
+
+				IPs, err = d.exchange(ctx, underlyingResolver, domain, dnsType)
+				if err == nil && len(IPs) > 1 {
+					IPs = []net.IP{IPs[dice.Roll(len(IPs))]}
+				}
 			case "ip":
-				ip6Ch := make(chan []net.IP, 1)
+				ip6Ch := make(chan net.IP, 1)
 				go func() { // query IPv6 address
 					defer close(ip6Ch)
 
-					ip6, err := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
+					ipsV6, err := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeAAAA)
 					if err != nil {
 						return
 					}
 
-					ip6Ch <- ip6
+					if len(ipsV6) > 0 {
+						ip6Ch <- ipsV6[dice.Roll(len(ipsV6))]
+					}
 				}()
 
-				ip4, err2 := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
-				if err2 == nil {
-					IPs = append(IPs, ip4...)
+				ipsV4, err2 := d.exchange(ctx, underlyingResolver, domain, dnsmessage.TypeA)
+				if err2 == nil && len(ipsV4) > 0 {
+					IPs = append(IPs, ipsV4[dice.Roll(len(ipsV4))])
 				}
 
 				if ip6, ok := <-ip6Ch; ok {
-					IPs = append(IPs, ip6...)
+					IPs = append(IPs, ip6)
 				}
 			default:
 				err = net.UnknownNetworkError(network)
@@ -251,46 +258,46 @@ func (d *ProtectedDialer) Init(_ dns.Client, _ outbound.Manager) {
 
 // Dial exported as the protected dial method
 func (d *ProtectedDialer) Dial(ctx context.Context,
-	src v2net.Address, dest v2net.Destination, sockopt *v2internet.SocketConfig) (conn net.Conn, err error) {
-	var ip net.IP
+	src v2net.Address, dest v2net.Destination, sockopt *internet.SocketConfig) (conn net.Conn, err error) {
+
 	if dest.Address.Family().IsIP() {
-		ip = dest.Address.IP()
-		if ip.IsLoopback() { // is it more effective
-			return v2rayDefaultDialer.Dial(ctx, src, dest, sockopt)
-		}
-		return d.fdConn(ctx, dest, sockopt)
-	}
+		if addr, ok := dest.Address.(v2net.MultiIPAddress); ok {
+			for _, ip := range addr.IPs() {
+				conn, err = d.fdConn(ctx, v2net.Destination{
+					Network: dest.Network,
+					Address: v2net.IPAddress(ip),
+					Port:    dest.Port,
+				}, sockopt)
 
-	ob := session.OutboundFromContext(ctx)
-	if ob == nil {
-		return nil, errors.New("outbound is not specified")
-	}
-
-	r := ob.Resolved
-	if r == nil {
-		var ips []net.IP
-		ips, err = d.lookupAddr(dest.Address.Domain())
-		if err != nil {
-			return nil, err
+				if err == nil {
+					break
+				}
+			}
+		} else if dest.Address.IP().IsLoopback() { // is it more effective
+			conn, err = v2rayDefaultDialer.Dial(ctx, src, dest, sockopt)
+		} else {
+			conn, err = d.fdConn(ctx, dest, sockopt)
 		}
 
-		r = &session.Resolved{
-			IPs: ips,
-		}
-		ob.Resolved = r
+		return
 	}
 
-	ip = r.CurrentIP()
-	if ip == nil {
-		return nil, errors.New("no IP specified")
-	}
-
-	dest2 := dest
-	dest2.Address = v2net.IPAddress(ip)
-	conn, err = d.fdConn(ctx, dest2, sockopt)
+	var ips []net.IP
+	ips, err = d.lookupAddr(dest.Address.Domain())
 	if err != nil {
-		r.NextIP()
 		return nil, err
+	}
+
+	for _, ip := range ips {
+		conn, err = d.fdConn(ctx, v2net.Destination{
+			Network: dest.Network,
+			Address: v2net.IPAddress(ip),
+			Port:    dest.Port,
+		}, sockopt)
+
+		if err == nil {
+			break
+		}
 	}
 
 	return conn, err
@@ -350,7 +357,7 @@ func (d *ProtectedDialer) DestIpAddress() net.IP {
 	return ips[0]
 }
 
-func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, sockopt *v2internet.SocketConfig) (net.Conn, error) {
+func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, sockopt *internet.SocketConfig) (net.Conn, error) {
 	fd, err := d.getFd(dest.Network)
 	if err != nil {
 		return nil, err
