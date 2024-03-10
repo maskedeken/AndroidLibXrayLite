@@ -5,10 +5,10 @@ go 1.22
 toolchain go1.22.0
 
 require (
+	github.com/sagernet/gomobile v0.1.3
 	github.com/sagernet/sing v0.3.2
-	github.com/sagernet/sing-tun v0.2.2
+	github.com/sagernet/sing-tun v0.2.3
 	github.com/xtls/xray-core v1.0.0 // replace
-	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a
 	golang.org/x/net v0.21.0
 	golang.org/x/sys v0.17.0
 )
