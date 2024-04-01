@@ -2,12 +2,10 @@ module github.com/2dust/AndroidLibXrayLite
 
 go 1.22
 
-toolchain go1.22.0
-
 require (
 	github.com/sagernet/gomobile v0.1.3
-	github.com/sagernet/sing v0.3.6
-	github.com/sagernet/sing-tun v0.2.3
+	github.com/sagernet/sing v0.3.8
+	github.com/sagernet/sing-tun v0.2.5
 	github.com/xtls/xray-core v1.0.0 // replace
 	golang.org/x/net v0.22.0
 	golang.org/x/sys v0.18.0
@@ -31,7 +29,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.16.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pires/go-proxyproto v0.7.0 // indirect
-	github.com/quic-go/quic-go v0.41.0 // indirect
+	github.com/quic-go/quic-go v0.42.0 // indirect
 	github.com/refraction-networking/utls v1.6.3 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/sagernet/gvisor v0.0.0-20231209105102-8d27a30e436e // indirect
@@ -61,6 +59,6 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
 
-replace github.com/xtls/xray-core => github.com/maskedeken/xray-core v1.1.4-0.20240314031130-dfe79c39c1a5
+replace github.com/xtls/xray-core => github.com/maskedeken/xray-core v1.1.4-0.20240401055115-4648a2f3a6ab
 
 replace github.com/sagernet/sing-shadowsocks => github.com/maskedeken/sing-shadowsocks v0.0.0-20231227033938-788ce73cde0a
