@@ -3,10 +3,10 @@ module github.com/2dust/AndroidLibXrayLite
 go 1.22
 
 require (
-	github.com/sagernet/gomobile v0.1.3
 	github.com/sagernet/sing v0.3.8
 	github.com/sagernet/sing-tun v0.2.5
 	github.com/xtls/xray-core v1.0.0 // replace
+	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a
 	golang.org/x/net v0.22.0
 	golang.org/x/sys v0.18.0
 )
