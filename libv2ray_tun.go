@@ -120,6 +120,7 @@ func (t *V2Tun) NewConnection(ctx context.Context, conn net.Conn, metadata M.Met
 		Source: source,
 		Conn:   conn,
 	}
+	inbound.SetCanSpliceCopy(2)
 	ctx = session.ContextWithInbound(ctx, inbound)
 
 	// [TCP] dns to router
