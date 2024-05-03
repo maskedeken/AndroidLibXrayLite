@@ -2,9 +2,11 @@ package libv2ray
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/netip"
+	"syscall"
 	"time"
 
 	singtun "github.com/sagernet/sing-tun"
@@ -45,6 +47,11 @@ type V2Tun struct {
 }
 
 func NewV2Tun(config *TunConfig) (*V2Tun, error) {
+	tunFd, err := syscall.Dup(int(config.FileDescriptor))
+	if err != nil {
+		return nil, fmt.Errorf("syscall.Dup: %v", err)
+	}
+
 	var addr4, addr6 []netip.Prefix
 	prefix4, _ := netip.ParsePrefix(PRIVATE_VLAN4_CLIENT + "/30")
 	addr4 = append(addr4, prefix4)
@@ -54,7 +61,7 @@ func NewV2Tun(config *TunConfig) (*V2Tun, error) {
 	}
 
 	dev, err := singtun.New(singtun.Options{
-		FileDescriptor: int(config.FileDescriptor),
+		FileDescriptor: tunFd,
 		MTU:            uint32(config.MTU),
 		Inet4Address:   addr4,
 		Inet6Address:   addr6,
