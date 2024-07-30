@@ -88,8 +88,8 @@ github.com/lunixbochs/vtclean v1.0.0/go.mod h1:pHhQNgMf3btfWnGBVipUOjRYhoOsdGqdm
 github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/maskedeken/sing-shadowsocks v0.0.0-20240714052245-d82bc0bd4982 h1:WH6344FeWC/BIRF69mbnm7hyrITI6hA784igNGWzyYE=
 github.com/maskedeken/sing-shadowsocks v0.0.0-20240714052245-d82bc0bd4982/go.mod h1:0rIKJZBR65Qi0zwdKezt4s57y/Tl1ofkaq6NlkzVuyE=
-github.com/maskedeken/xray-core v1.1.4-0.20240722085239-c244f470bc74 h1:oHSN66Gx/+KSpaCOtackhTWh6sDvJxKNdBX/UaufChU=
-github.com/maskedeken/xray-core v1.1.4-0.20240722085239-c244f470bc74/go.mod h1:UX8AOY/RBl0hwWOyYF3DzbSnfxH93P8eINm9mPln45E=
+github.com/maskedeken/xray-core v1.1.4-0.20240730022230-bb496fc03c6c h1:WLVQ/3iyGvbiMEP3Atnb9iU8ykAPT2MpZAq8vcfvnRE=
+github.com/maskedeken/xray-core v1.1.4-0.20240730022230-bb496fc03c6c/go.mod h1:UX8AOY/RBl0hwWOyYF3DzbSnfxH93P8eINm9mPln45E=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/microcosm-cc/bluemonday v1.0.1/go.mod h1:hsXNsILzKxV+sX77C5b8FSuKF00vh2OMYv+xgHpAMF4=
 github.com/miekg/dns v1.1.61 h1:nLxbwF3XxhwVSm8g9Dghm9MHPaUZuqhPiGL+675ZmEs=
