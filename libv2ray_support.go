@@ -375,14 +375,23 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, so
 		internet.ApplySockopt(ctx, dest, uintptr(fd), sockopt)
 	}
 
+	ip := dest.Address.IP()
+	port := int(dest.Port.Value())
 	sa := &unix.SockaddrInet6{
-		Port: int(dest.Port.Value()),
+		Port: port,
 	}
-	copy(sa.Addr[:], dest.Address.IP().To16())
+	copy(sa.Addr[:], ip.To16())
 
-	if err := unix.Connect(fd, sa); err != nil {
-		log.Printf("fdConn unix.Connect err, Close Fd: %d Err: %v", fd, err)
-		return nil, err
+	if dest.Network == v2net.Network_UDP {
+		if err := unix.Bind(fd, &unix.SockaddrInet6{}); err != nil {
+			log.Printf("fdConn unix.Bind err, Close Fd: %d Err: %v", fd, err)
+			return nil, err
+		}
+	} else {
+		if err := unix.Connect(fd, sa); err != nil {
+			log.Printf("fdConn unix.Connect err, Close Fd: %d Err: %v", fd, err)
+			return nil, err
+		}
 	}
 
 	file := os.NewFile(uintptr(fd), "Socket")
@@ -393,13 +402,27 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, dest v2net.Destination, so
 
 	defer file.Close()
 	//Closing conn does not affect file, and closing file does not affect conn.
-	conn, err := net.FileConn(file)
-	if err != nil {
-		log.Printf("fdConn FileConn Close Fd: %d Err: %v", fd, err)
-		return nil, err
+	if dest.Network == v2net.Network_UDP {
+		packetConn, err := net.FilePacketConn(file)
+		if err != nil {
+			log.Printf("fdConn FilePacketConn Close Fd: %d Err: %v", fd, err)
+			return nil, err
+		}
+		return &internet.PacketConnWrapper{
+			Conn: packetConn,
+			Dest: &net.UDPAddr{
+				IP:   ip,
+				Port: port,
+			},
+		}, nil
+	} else {
+		conn, err := net.FileConn(file)
+		if err != nil {
+			log.Printf("fdConn FileConn Close Fd: %d Err: %v", fd, err)
+			return nil, err
+		}
+		return conn, nil
 	}
-
-	return conn, nil
 }
 
 func reorderAddresses(ips []net.IP, preferIPv6 bool) []net.IP {
